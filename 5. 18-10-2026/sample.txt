@@ -1,0 +1,3 @@
+Welcome to Python File Handling
+Learning Python is interesting!
+Practising exception handling.
