@@ -23,3 +23,11 @@ print("Success Count :", success_count)
 # - Reads one record at a time.
 # - Doesn't load the entire CSV into memory.
 # - Suitable for continuous processing.
+
+# Python generators
+
+# Choose when:
+# - Processing very large files.
+# - Building streaming pipelines.
+# - Reading APIs or network streams.
+# - Implementing custom record-by-record processing.
