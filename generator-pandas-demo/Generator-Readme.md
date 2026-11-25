@@ -237,7 +237,6 @@ with open("data.csv", newline="") as file:
         print(row)
 
 # Output :
-# -------------------
 
 {'id': '1', 'name': 'Vinod', 'amount': '500'}
 {'id': '2', 'name': 'Rahul', 'amount': '700'}
