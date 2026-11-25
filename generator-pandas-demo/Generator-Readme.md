@@ -524,3 +524,268 @@ Choose the right technology based on:
 6. Reliability and recovery requirements.
 
 **Interview mindset:** Explain why you choose an approach, what its limitations are, and how you would scale it in production.
+
+<hr/>
+
+
+# Large CSV File Processing – Python Generators vs Pandas
+
+## Objective
+
+Process large CSV files (potentially up to 1 TB) using two Python approaches:
+
+1. Python Generators
+2. Pandas DataFrame with chunked reading
+
+Both approaches perform the same CRUD-style file-processing operations and produce comparable results.
+
+## 1. Operations We Are Performing
+
+| Operation | Implementation |
+|---|---|
+| Create | Create a processed output CSV file |
+| Read | Read records from the input CSV |
+| Update | Normalize status values using `strip().upper()` |
+| Delete | Exclude records that do not have `SUCCESS` status |
+| Write | Save successful records into a new CSV file |
+
+**Note:** These are CRUD-style file-processing operations, not database CRUD transactions. The original CSV remains unchanged.
+
+## 2. Project Structure
+
+```text
+project/
+│
+├── large_data.csv
+├── generator_processing.py
+├── pandas_processing.py
+├── generator_output.csv
+├── pandas_output.csv
+└── README.md
+```
+
+| File | Purpose |
+|---|---|
+| `large_data.csv` | Original input dataset |
+| `generator_processing.py` | Generator implementation |
+| `pandas_processing.py` | Pandas implementation |
+| `generator_output.csv` | Generator processing output |
+| `pandas_output.csv` | Pandas processing output |
+
+## 3. Execution Instructions
+
+Install Pandas:
+
+```bash
+pip install pandas
+```
+
+Run Generator:
+
+```bash
+python generator_processing.py
+```
+
+Run Pandas:
+
+```bash
+python pandas_processing.py
+```
+
+Both scripts should be executed separately using the same input CSV file.
+
+## 4. Metrics We Are Measuring
+
+Each implementation reports the following metrics:
+
+| Metric | Description |
+|---|---|
+| Original file size | Size of the input CSV |
+| Output file size | Size of the processed CSV |
+| Total records | Number of records read |
+| Successful records | Number of records retained |
+| Total successful amount | Sum of amounts for successful records |
+| Current memory | Python-traced memory at measurement time |
+| Peak memory | Highest traced allocation during execution |
+| Memory released from peak | Difference between peak and current traced memory |
+| Execution time | Total time taken from start to finish |
+
+### Memory measurement
+
+Both implementations use Python's built-in `tracemalloc` module.
+
+```python
+tracemalloc.start()
+
+# Processing logic
+
+current, peak = tracemalloc.get_traced_memory()
+
+tracemalloc.stop()
+```
+
+Memory conversion:
+
+```python
+memory_mb = memory_bytes / (1024 ** 2)
+```
+
+**Important distinctions:**
+
+- `current`: Memory currently traced by Python.
+- `peak`: Highest traced memory allocation during processing.
+- `peak - current`: Difference between peak and current traced memory.
+- `tracemalloc` does not capture every native allocation made by libraries such as NumPy.
+
+For actual process RAM usage, use `psutil` and monitor RSS (Resident Set Size).
+
+For a reliable peak RAM comparison, run each approach in a separate process.
+
+## 5. Generator Approach – Expected Behaviour
+
+The generator reads CSV records incrementally using `yield`.
+
+Processing sequence:
+
+1. Open the CSV file.
+2. Read records incrementally.
+3. Yield a batch of records.
+4. Normalize status.
+5. Filter successful records.
+6. Calculate successful record count and total amount.
+7. Write successful records into the output CSV.
+8. Release the processed batch.
+9. Continue until the file ends.
+
+### Advantages
+
+- Incremental processing.
+- Controlled memory consumption.
+- Suitable for custom processing pipelines.
+- No need to retain the entire dataset.
+- Can process files larger than available RAM.
+
+### Limitations
+
+- Python-level loops can be slower than vectorized operations.
+- More custom processing logic may be required.
+- Batch size must be selected carefully.
+
+## 6. Pandas Approach – Expected Behaviour
+
+The Pandas implementation uses:
+
+```python
+pd.read_csv(INPUT_FILE, chunksize=10000)
+```
+
+Processing sequence:
+
+1. Open the CSV file.
+2. Read a bounded DataFrame chunk.
+3. Normalize status.
+4. Filter successful records.
+5. Calculate successful record count and total amount.
+6. Write successful records to the output CSV.
+7. Release the current DataFrame and filtered DataFrame.
+8. Read the next chunk.
+9. Continue until the file ends.
+
+### Advantages
+
+- Convenient DataFrame operations.
+- Vectorized filtering and aggregation.
+- Less custom row-processing code.
+- Chunked reading avoids loading the entire dataset.
+
+### Limitations
+
+- DataFrames can consume substantial memory.
+- Filtering creates additional DataFrame allocations.
+- Chunk size affects memory and execution time.
+- Operations requiring global sorting or complex joins may need additional strategies.
+
+## 7. Generator vs Pandas – Comparison
+
+| Feature | Generator | Pandas |
+|---|---|---|
+| Reading | Incremental records/batches | DataFrame chunks |
+| Processing | Python loops | Vectorized operations |
+| Memory | Generally low and bounded | Bounded by chunk size and intermediate DataFrames |
+| Performance | Depends on Python processing logic | Often faster for analytical operations |
+| Filtering | Manual conditions | DataFrame filtering |
+| Aggregation | Running variables | Built-in aggregation |
+| Large files | Suitable | Suitable with chunked reading |
+| Full-file loading | Not required | Not required when using chunksize |
+
+## 8. Can Both Approaches Process a 1 TB File?
+
+**Yes, potentially.**
+
+Neither approach requires loading the entire CSV into memory when implemented incrementally.
+
+However, actual feasibility depends on:
+
+- Available RAM.
+- Storage throughput.
+- CPU performance.
+- CSV row width and data types.
+- Transformation complexity.
+- Output size.
+- Processing time requirements.
+
+For a 1 TB workload, benchmark the actual processing requirements.
+
+If the workload exceeds one machine's practical capacity, consider distributed processing using Apache Spark / PySpark.
+
+## 9. How to Compare Both Approaches Correctly
+
+For a fair comparison:
+
+1. Use exactly the same input CSV.
+2. Use identical filtering and aggregation logic.
+3. Use the same output columns.
+4. Run each implementation separately.
+5. Measure execution time.
+6. Measure peak traced memory.
+7. Measure process RSS for actual RAM usage.
+8. Compare output record counts and total amounts.
+
+### Comparison table – Fill after execution
+
+| Metric | Generator | Pandas |
+|---|---:|---:|
+| Original file size | | |
+| Output file size | | |
+| Total records | | |
+| Successful records | | |
+| Total successful amount | | |
+| Current traced memory | | |
+| Peak traced memory | | |
+| Peak process RSS | | |
+| Execution time | | |
+
+**Validation:** Both approaches should produce the same successful record count and total successful amount. Their output contents should also match.
+
+## 10. Interview Takeaways
+
+**Question: How would you process a 1 TB CSV file?**
+
+I would avoid loading the entire dataset into memory.
+
+For sequential processing, I would use generators with incremental CSV reading and bounded batches.
+
+For analytical transformations, I would use Pandas `read_csv(chunksize=...)` to process DataFrame chunks.
+
+I would measure memory, execution time and processing throughput to identify the best approach.
+
+If the workload exceeds one machine's capacity, I would consider Spark or another distributed processing solution.
+
+### Remember
+
+- Generator: Lazy and incremental processing.
+- Pandas: Convenient analytical operations and chunked DataFrame processing.
+- Both: Can process data larger than RAM when operations are designed for bounded memory.
+- Spark: Consider for distributed processing at larger scale.
+
+**Final principle:** Choose the approach based on memory requirements, processing complexity, performance and scalability – not simply the file size.
