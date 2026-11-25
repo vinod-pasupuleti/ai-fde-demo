@@ -222,7 +222,7 @@ if __name__ == "__main__":
 
 ```python
 reader = csv.DictReader(csv_file)
-csv.DictReader(file) # - does not load the entire CSV into a dictionary.
+# csv.DictReader(file) - does not load the entire CSV into a dictionary.
 # It reads the CSV one row at a time and converts each row into a Python dictionary.
 
 # Example CSV
