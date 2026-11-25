@@ -212,6 +212,36 @@ if __name__ == "__main__":
     process_file("./large_data.csv")
 ```
 
+```python
+reader = csv.DictReader(csv_file)
+# csv.DictReader(file) - does not load the entire CSV into a dictionary.
+# It reads the CSV one row at a time and converts each row into a Python dictionary.
+
+# Example CSV
+# id,name,amount
+# 1,Vinod,500
+# 2,Rahul,700
+
+with open("data.csv", newline="") as file:
+    reader = csv.DictReader(file)
+
+    for row in reader:
+        print(row)
+
+# Output :
+# -------------------
+
+{'id': '1', 'name': 'Vinod', 'amount': '500'}
+{'id': '2', 'name': 'Rahul', 'amount': '700'}
+
+# Important distinction:
+# - csv.DictReader(file) → Creates an iterator, not a complete dictionary.
+# - next(reader) → Reads one row.
+# - for row in reader → Reads rows sequentially.
+# - list(reader) → Loads all rows into memory as a list of dictionaries. [{},{}]
+# That's why DictReader is useful for processing very large CSV files.
+```
+
 **Why choose this?**
 
 - Processes data in batches.
