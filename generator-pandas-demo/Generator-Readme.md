@@ -245,10 +245,10 @@ with open("data.csv", newline="") as file:
 ```
 
 **Important distinction:**
- - csv.DictReader(file) → Creates an iterator, not a complete dictionary.
- - next(reader) → Reads one row.
- - for row in reader → Reads rows sequentially.
- - list(reader) → Loads all rows into memory as a list of dictionaries. [{},{}]
+ - `csv.DictReader(file)` → Creates an iterator, not a complete dictionary.
+ - `next(reader)` → Reads one row.
+ - `for row in reader` → Reads rows sequentially.
+ - `list(reader)` → Loads all rows into memory as a list of dictionaries. `[{},{}]`
 That's why DictReader is useful for processing very large CSV files.
 
 
