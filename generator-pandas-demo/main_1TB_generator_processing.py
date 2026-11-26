@@ -12,17 +12,20 @@ def read_csv_generator(file_path, chunk_size=10000):
     """Read CSV incrementally and yield batches."""
     with open(file_path, "r", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
+
+        yield reader.fieldnames, None  # Send headers first
+
         batch = []
 
         for row in reader:
             batch.append(row)
 
             if len(batch) >= chunk_size:
-                yield batch
+                yield None, batch
                 batch = []
 
         if batch:
-            yield batch
+            yield None, batch
 
 
 def process_csv():
@@ -35,25 +38,24 @@ def process_csv():
 
     # CREATE output file and write processed records
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as output:
-        fieldnames = ["id", "status", "amount"]
+        batches = read_csv_generator(INPUT_FILE)
+
+        fieldnames, _ = next(batches) # requests the first value from the generator.
+        # The underscore _ means we are intentionally ignoring the second returned value.
+
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
 
-        for batch in read_csv_generator(INPUT_FILE):
+        for _, batch in batches: # (None, [dict1, dict2, dict3, ...])
 
             for row in batch:
                 total_records += 1
 
-                # UPDATE: normalize status
                 row["status"] = row["status"].strip().upper()
 
-                # READ: select successful records
                 if row["status"] == "SUCCESS":
                     success_count += 1
                     total_amount += float(row["amount"])
-
-                    # DELETE: failed records are excluded
-                    # CREATE: write successful records
                     writer.writerow(row)
 
             del batch
