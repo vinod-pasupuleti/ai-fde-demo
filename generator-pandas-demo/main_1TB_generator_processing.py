@@ -48,7 +48,7 @@ def process_csv():
 
         for _, batch in batches: # (None, [dict1, dict2, dict3, ...])
 
-            for row in batch:
+            for row in batch:    # [dict1, dict2, dict3, ...]
                 total_records += 1
 
                 row["status"] = row["status"].strip().upper()
