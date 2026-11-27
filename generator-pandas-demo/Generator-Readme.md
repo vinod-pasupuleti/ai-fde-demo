@@ -787,15 +787,15 @@ For a fair comparison:
 
 | Metric | Generator | Pandas |
 |---|---:|---:|
-| Original file size | | |
-| Output file size | | |
-| Total records | | |
-| Successful records | | |
-| Total successful amount | | |
-| Current traced memory | | |
-| Peak traced memory | | |
-| Peak process RSS | | |
-| Execution time | | |
+| Original file size | 0.30 MB | 0.30 MB |
+| Output file size | 0.09 MB | 0.09 MB |
+| Total records | 1800 | 1800 |
+| Successful records | 558 | 558 |
+| Total successful amount | 13536189.88 | 13536189.88 |
+| Current traced memory | 0.13 MB | 0.07 MB |
+| Peak traced memory | 1.44 MB | 0.97 MB |
+| Peak process RSS | 1.30 MB | 0.91 MB |
+| Execution time | 0.08 seconds | 0.79 seconds |
 
 **Validation:** Both approaches should produce the same successful record count and total successful amount. Their output contents should also match.
 
@@ -821,3 +821,182 @@ If the workload exceeds one machine's capacity, I would consider Spark or anothe
 - Spark: Consider for distributed processing at larger scale.
 
 **Final principle:** Choose the approach based on memory requirements, processing complexity, performance and scalability – not simply the file size.
+
+---
+
+## 1. `return` vs `yield` in Python
+
+Both `return` and `yield` are used to produce values from a function, but they behave differently.
+
+| `return` | `yield` |
+|---|---|
+| Returns a value and exits the function. | Produces a value and suspends the function. |
+| Function execution terminates. | Function execution pauses and can resume later. |
+| Calling the function again starts a new execution. | Calling `next()` resumes from the previous pause. |
+| Commonly used to return a final result. | Commonly used for incremental data processing. |
+| Does not automatically require large memory. | Can reduce memory usage by avoiding storage of all results at once. |
+
+### 1.1 Understanding `return`
+
+```python
+def get_numbers():
+    return [1, 2, 3, 4, 5]
+
+result = get_numbers()
+print(result)
+```
+
+Output:
+
+```text
+[1, 2, 3, 4, 5]
+```
+
+**Explanation:**
+- The function returns the complete list.
+- Function execution terminates after `return`.
+- The returned list remains in memory while it is referenced.
+
+### 1.2 Understanding `yield`
+
+```python
+def get_numbers():
+    yield 1
+    yield 2
+    yield 3
+    yield 4
+    yield 5
+
+numbers = get_numbers()
+
+for number in numbers:
+    print(number)
+```
+
+Output:
+
+```text
+1
+2
+3
+4
+5
+```
+
+**Explanation:**
+- `yield` produces one value at a time.
+- The function pauses after each `yield`.
+- Its execution state is preserved.
+- The next request resumes execution from where it paused.
+- It does not need to create and retain the complete result list.
+
+### 1.3 Important Python terminology
+
+| Term | Meaning |
+|---|---|
+| `yield` | Python keyword used to produce values incrementally. |
+| Generator function | A function containing `yield`. |
+| Generator object | Object returned when a generator function is called. |
+| `next()` | Requests the next value from a generator. |
+| Iterator | An object that provides values one at a time. |
+
+Example:
+
+```python
+def number_generator():
+    yield 10
+    yield 20
+    yield 30
+
+numbers = number_generator()
+
+print(next(numbers))  # 10
+print(next(numbers))  # 20
+print(next(numbers))  # 30
+```
+
+### 1.4 Real-world example: Copying files
+
+Imagine copying 100,000 files from one folder to another.
+
+**Without incremental processing:**
+- Collect all file information first.
+- Hold the collection in memory.
+- Process the complete collection.
+
+**With a generator:**
+- Retrieve a limited number of files.
+- Process that batch.
+- Move to the next batch.
+- Continue until all files are processed.
+
+This approach can reduce memory requirements because the application does not need to hold the entire collection in memory.
+
+### 1.5 Generator memory management
+
+In our CSV processing implementation:
+
+```python
+for _, batch in batches:
+    for row in batch:
+        # Process each record
+        pass
+
+    del batch
+```
+
+The first loop retrieves one batch from the generator.
+
+The second loop processes each dictionary (CSV record) inside that batch.
+
+After processing, the local reference to the batch is deleted. Python can reclaim the memory when no other references to the batch remain.
+
+**Important:** `yield` does not automatically clear memory. Memory is reclaimed when objects are no longer referenced and garbage collection can reclaim them.
+
+### 1.6 Generator vs Pandas benchmark
+
+Our sample CSV processing benchmark produced these results:
+
+| Metric | Generator | Pandas |
+|---|---:|---:|
+| Original file size | 0.30 MB | 0.30 MB |
+| Output file size | 0.09 MB | 0.09 MB |
+| Total records | 1,800 | 1,800 |
+| Successful records | 558 | 558 |
+| Total successful amount | 13,536,189.88 | 13,536,189.88 |
+| Current traced memory | 0.13 MB | 0.07 MB |
+| Peak traced memory | 1.44 MB | 0.97 MB |
+| Peak process RSS | 1.30 MB | 0.91 MB |
+| Execution time | 0.08 seconds | 0.79 seconds |
+
+**Observations:**
+- Both approaches produced the same processing results.
+- Generator execution was faster in this particular test.
+- Pandas recorded lower traced memory in this particular test.
+- Generator and Pandas memory usage depends on dataset size, data types, batch size, and implementation.
+- `tracemalloc` measures Python-traced allocations, not complete process RAM.
+- The sample contains only 1,800 records, so these results cannot establish performance for a 1 TB dataset.
+
+### 1.7 Interview-ready explanation
+
+**Question: What is the difference between `return` and `yield` in Python?**
+
+Answer:
+
+`return` terminates a function and returns its result. `yield` makes a function a generator, allowing it to produce values incrementally while preserving its execution state. This is useful for processing large datasets without loading the entire dataset into memory.
+
+**Question: Why use generators for large CSV files?**
+
+Answer:
+
+Generators support lazy evaluation. Instead of loading all records into memory, we can read and process records incrementally or in batches. This helps control memory consumption when working with large files.
+
+---
+
+**Key Takeaway**
+
+- `return` → Return a result and terminate function execution.
+- `yield` → Produce values incrementally and pause execution.
+- Generator → Useful for streaming data and memory-conscious processing.
+- Batch processing → Process a limited number of records at a time.
+- Generators are not always faster or more memory-efficient than Pandas; benchmark the actual workload.
